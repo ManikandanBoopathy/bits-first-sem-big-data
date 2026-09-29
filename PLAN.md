@@ -32,7 +32,7 @@ Services do not run concurrently — Hive and HBase together exceed the 4 GB bud
 | # | Phase | Owner | HDFS output |
 |---|---|---|---|
 | 0.5 | Environment verification + config fixes | Dhruv | — |
-| 1 | Install Pig / Hive / HBase | Dhruv, Ramya, Sri Lalithya, Vishwa | — |
+| 1 | Install Pig / Hive / HBase | Dhruv | — |
 | 2 | Download + HDFS ingestion | Sai Krishna Mohan | `/raw/trips/…`, `/raw/zone_lookup/` |
 | 3 | Pig ETL (cleanse + enrich) | Ramya | `/clean/trips`, `/clean/trips_enriched` |
 | 4 | Native Hadoop Streaming MR | Sai Krishna Mohan | `/results/trips_per_zone_hour` |

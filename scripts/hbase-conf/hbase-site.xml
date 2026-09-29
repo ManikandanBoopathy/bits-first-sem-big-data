@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    hbase-site.xml — HBase 2.4.18 in standalone mode with HDFS storage
+    Target path in VM: $HBASE_HOME/conf/hbase-site.xml
+
+    Standalone mode: HMaster, HRegionServer and ZooKeeper run inside a
+    single JVM. In `jps` the process appears only as "HMaster". This is
+    correct for hbase.cluster.distributed=false.
+-->
+<configuration>
+
+  <property>
+    <name>hbase.rootdir</name>
+    <value>hdfs://127.0.0.1:9000/hbase</value>
+  </property>
+
+  <property>
+    <name>hbase.zookeeper.property.dataDir</name>
+    <value>/home/hdoop/zookeeper</value>
+  </property>
+
+  <property>
+    <name>hbase.cluster.distributed</name>
+    <value>false</value>
+  </property>
+
+  <property>
+    <name>hbase.unsafe.stream.capability.enforce</name>
+    <value>false</value>
+  </property>
+
+</configuration>
