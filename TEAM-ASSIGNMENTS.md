@@ -1,4 +1,4 @@
-# Team Assignments — 6 Members
+# Team Assignments
 
 **Assignment:** BITS CC ZG522 · Big Data Systems · Assignment 1
 **Domain:** Transportation · **Dataset:** NYC TLC Yellow Taxi Trips
@@ -14,34 +14,31 @@
 | Member | Varada Sri Lalithya | 2026NS03089 |
 | Member | Vishwa Vajendra M | 2026NS03076 |
 
-## Ownership matrix
+## Ownership
 
-| Member | Theory (Part A) | VM execution | Extra |
-|---|---|---|---|
-| **Dhruv (Leader)** | §1 Introduction (domain, background, business problem) | Phase 0.5 — Env verification + Hadoop config fixes | Overall coordination · Final report compile · Demo lead |
-| **Manikandan (Presenter)** | §2 Big Data Need Analysis (5 Vs, why RDBMS fails) | Phase 6 — HBase table creation, zone lookup load, scan/get demos | Presentation deck · Viva rehearsal driver |
-| Sai Krishna Mohan | §3 Dataset Description | Phase 2 — Data download + HDFS ingest · Phase 4 — Native Hadoop Streaming MR | Data lineage story |
-| Ramya | §4 Architecture (diagram walkthrough) | Phase 3 — Pig ETL (clean + enrich) | Pig→MR compilation explanation |
-| Sri Lalithya | §5.a Tech selection — Hadoop / HDFS / MR / Pig | Phase 5 — Hive DDL, analytical HQL, EXPLAIN plans, result export | Why Hive over RDBMS pitch |
-| Vishwa | §5.b Tech selection — Hive / HBase / Streamlit | Phase 7 — Streamlit dashboard | Dashboard demo in viva |
-
-## Contribution principles
-
-- Every member owns **one theory section** + **one execution phase**. Roughly equal workload.
-- Every member captures screenshots for their own phase and pushes their own outputs under `user_output/<phase>/`.
-- The phase owner writes the reproducible step-by-step guide first; the other members reproduce it on their own VMs.
-- Faculty may cold-call any member on any phase in viva — every member should have read every guide.
-
-## Phase-to-owner lookup
-
-| Phase | Owner | Guide |
+| Member | Theory section (Part A) | Pipeline phase |
 |---|---|---|
-| 0.5 Env fix | Dhruv | `user-tasks/00-env-verification-and-config-fix.md` |
-| 1 Install Pig/Hive/HBase | Dhruv + Ramya + Sri Lalithya + Vishwa | `user-tasks/01-install-pig-hive-hbase.md` |
-| 2 Download + ingest | Sai Krishna Mohan | `user-tasks/02-download-and-ingest.md` |
-| 3 Pig ETL | Ramya | `user-tasks/03-run-pig-etl.md` |
-| 4 Native MR | Sai Krishna Mohan | `user-tasks/04-run-mapreduce.md` |
-| 5 Hive analytics | Sri Lalithya | `user-tasks/05-run-hive.md` |
-| 6 HBase demo | Manikandan | `user-tasks/06-run-hbase.md` |
-| 7 Streamlit dashboard | Vishwa | `user-tasks/07-dashboard.md` |
-| 8 Report + presentation | Dhruv (compile) · Manikandan (deck) | `my-work/report/` |
+| Dhruv Kumar | §1 Introduction | Phase 0.5 — Environment verification + Hadoop config fixes |
+| Manikandan B | §2 Big Data Need Analysis | Phase 6 — HBase table creation, zone lookup load, filter scans |
+| Sai Krishna Mohan | §3 Dataset Description | Phase 2 — Data download + HDFS ingestion · Phase 4 — Native Hadoop Streaming MR |
+| Ramya K | §4 Architecture | Phase 3 — Pig ETL (clean + enrich) |
+| Sri Lalithya | §5.a Technology selection — Hadoop / HDFS / MR / Pig | Phase 5 — Hive DDL, analytical queries, export |
+| Vishwa | §5.b Technology selection — Hive / HBase / Streamlit | Phase 7 — Streamlit dashboard |
+
+## Additional responsibilities
+
+- **Group Leader (Dhruv):** overall coordination, environment setup, report compilation.
+- **Presentation Coordinator (Manikandan):** presentation deck, viva rehearsal.
+
+## Phase → method note
+
+| Phase | Method note |
+|---|---|
+| 0.5 | `phases/00-env-verification-and-config-fix.md` |
+| 1 | `phases/01-install-pig-hive-hbase.md` |
+| 2 | `phases/02-download-and-ingest.md` |
+| 3 | `phases/03-run-pig-etl.md` |
+| 4 | `phases/04-run-mapreduce.md` |
+| 5 | `phases/05-run-hive.md` |
+| 6 | `phases/06-run-hbase.md` |
+| 7 | `phases/07-dashboard.md` |
