@@ -1,22 +1,26 @@
-# Phase 1 — Install Apache Pig, Hive, and HBase
+# Phase 1 – Install Apache Pig, Hive & HBase
 
-## Objective
+**Phase owner:** Dhruv (writes canonical steps) — Ramya, Sri Lalithya, Vishwa verify by reproducing on their VMs.
+**Time:** 45–60 minutes total across the three tools.
+**Prerequisite:** Phase 0.5 clean (Hadoop 3.2.1 pseudo-cluster verified with WordCount).
 
-Install three Hadoop-ecosystem components on top of the Hadoop 3.2.1 pseudo-cluster from Phase 0.5. All installations run as user `hdoop` and use pre-built binary tarballs from the Apache archive.
+## What we're installing (versions locked to Hadoop 3.2.1)
 
-## Versions
+| Tool | Version | Download |
+|---|---|---|
+| Apache Pig | **0.17.0** | `https://archive.apache.org/dist/pig/pig-0.17.0/pig-0.17.0.tar.gz` |
+| Apache Hive | **3.1.3** | `https://archive.apache.org/dist/hive/hive-3.1.3/apache-hive-3.1.3-bin.tar.gz` |
+| Apache HBase | **2.4.18** | `https://archive.apache.org/dist/hbase/2.4.18/hbase-2.4.18-bin.tar.gz` |
 
-| Tool | Version | Home directory | Source |
-|---|---|---|---|
-| Apache Pig | 0.17.0 | `/home/hdoop/pig-0.17.0` | https://archive.apache.org/dist/pig/pig-0.17.0/pig-0.17.0.tar.gz |
-| Apache Hive | 3.1.3 | `/home/hdoop/apache-hive-3.1.3-bin` | https://archive.apache.org/dist/hive/hive-3.1.3/apache-hive-3.1.3-bin.tar.gz |
-| Apache HBase | 2.4.18 | `/home/hdoop/hbase-2.4.18` | https://archive.apache.org/dist/hbase/2.4.18/hbase-2.4.18-bin.tar.gz |
+These three versions have known compatibility with Hadoop 3.2.1.
 
-All three versions are known-compatible with Hadoop 3.2.1.
+**All commands run as `hdoop` on the VM.**
 
-## 1. Shell environment
+---
 
-The block in `scripts/hadoop-conf/bashrc-additions.sh` is appended to `~/.bashrc`. It declares `PIG_HOME`, `HIVE_HOME`, `HBASE_HOME`, adds their `bin/` directories to `PATH`, and auto-detects the JDK architecture (`amd64` on Intel, `arm64` on Apple-Silicon / ARM hosts) via `dpkg --print-architecture`.
+## Step 1 — Ensure `.bashrc` has the environment additions
+
+Paste the block from `my-work/scripts/hadoop-conf/bashrc-additions.sh` at the end of your `~/.bashrc`, then:
 
 ```bash
 source ~/.bashrc
@@ -32,23 +36,36 @@ HIVE_HOME=/home/hdoop/apache-hive-3.1.3-bin
 HBASE_HOME=/home/hdoop/hbase-2.4.18
 ```
 
-## 2. Apache Pig 0.17.0
+(The dirs don't exist yet — that's fine; we'll create them.)
+
+---
+
+## Step 2 — Install Apache Pig 0.17.0
 
 ```bash
 cd ~
 wget https://archive.apache.org/dist/pig/pig-0.17.0/pig-0.17.0.tar.gz
 tar xzf pig-0.17.0.tar.gz
-rm pig-0.17.0.tar.gz
+rm pig-0.17.0.tar.gz     # save disk
+```
+
+Verify:
+
+```bash
 pig -version
 ```
 
-Expected first line:
+Expected (first line):
 
 ```
 Apache Pig version 0.17.0 (r1797386)
 ```
 
-## 3. Apache Hive 3.1.3
+Screenshot this — `01-pig-version.png`.
+
+---
+
+## Step 3 — Install Apache Hive 3.1.3
 
 ### 3a. Download and extract
 
@@ -59,16 +76,16 @@ tar xzf apache-hive-3.1.3-bin.tar.gz
 rm apache-hive-3.1.3-bin.tar.gz
 ```
 
-### 3b. Resolve the Guava dependency conflict
+### 3b. Fix Guava conflict (well-known Hive 3.1.3 issue)
 
-Hive 3.1.3 ships `guava-19.0.jar`, which is incompatible with Hadoop 3.2.1's newer Guava. Hive fails to start with `NoSuchMethodError: Preconditions.checkArgument` unless replaced:
+Hive 3.1.3 ships an old Guava that conflicts with Hadoop 3.2.1's newer one. Replace it:
 
 ```bash
-rm  $HIVE_HOME/lib/guava-19.0.jar
-cp  $HADOOP_HOME/share/hadoop/hdfs/lib/guava-27.0-jre.jar  $HIVE_HOME/lib/
+rm $HIVE_HOME/lib/guava-19.0.jar
+cp $HADOOP_HOME/share/hadoop/hdfs/lib/guava-27.0-jre.jar $HIVE_HOME/lib/
 ```
 
-### 3c. HDFS directories for Hive
+### 3c. Create HDFS dirs Hive needs
 
 ```bash
 hdfs dfs -mkdir -p /user/hive/warehouse
@@ -77,45 +94,78 @@ hdfs dfs -chmod -R 1777 /tmp
 hdfs dfs -chmod -R 1777 /user/hive/warehouse
 ```
 
-### 3d. `hive-site.xml`
+### 3d. Configure Hive to use embedded Derby metastore
 
-The canonical Hive configuration is checked in at `scripts/hive-conf/hive-site.xml`. It is copied verbatim into `$HIVE_HOME/conf/hive-site.xml`:
+**DO NOT copy `hive-default.xml.template` to `hive-site.xml`.** That template contains its own `<property>javax.jdo.option.ConnectionURL</property>` with a *relative-path* Derby URL (`databaseName=metastore_db`). Hadoop XML config is **last-property-wins** — so if you add a second `ConnectionURL` on top, the template's original one silently overrides yours and Derby ends up creating a fresh, empty `metastore_db/` folder in whatever working directory you launch `hive` from. Every subsequent `CREATE TABLE` then fails with `Required table missing : "VERSION"`.
+
+Instead, write a **minimal, single-source-of-truth `hive-site.xml`** — one `ConnectionURL`, no template inheritance:
 
 ```bash
-cp scripts/hive-conf/hive-site.xml $HIVE_HOME/conf/hive-site.xml
+cat > $HIVE_HOME/conf/hive-site.xml <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <property>
+    <name>javax.jdo.option.ConnectionURL</name>
+    <value>jdbc:derby:;databaseName=/home/hdoop/hive_metastore_db;create=true</value>
+  </property>
+  <property>
+    <name>javax.jdo.option.ConnectionDriverName</name>
+    <value>org.apache.derby.jdbc.EmbeddedDriver</value>
+  </property>
+  <property>
+    <name>hive.metastore.warehouse.dir</name>
+    <value>/user/hive/warehouse</value>
+  </property>
+  <property>
+    <name>hive.exec.scratchdir</name>
+    <value>/tmp/hive</value>
+  </property>
+</configuration>
+EOF
 ```
 
-Key properties:
-
-- `javax.jdo.option.ConnectionURL` — absolute-path Derby database at `/home/hdoop/hive_metastore_db`.
-- `hive.metastore.warehouse.dir` — `/user/hive/warehouse`.
-
-Design decision: the file is written as a minimal single-source configuration and **not** derived from `hive-default.xml.template`. The template already declares its own `javax.jdo.option.ConnectionURL` with a relative-path database name (`metastore_db`); because Hadoop XML uses last-property-wins semantics, that template entry would silently override the absolute path added on top, leading Derby to create empty `metastore_db/` directories in whichever cwd `hive` is launched from.
-
-Sanity check that exactly one `ConnectionURL` property exists:
+**Verify — this must return exactly `2`** (one `<name>ConnectionURL</name>` + one `<value>…</value>`):
 
 ```bash
-grep -c ConnectionURL $HIVE_HOME/conf/hive-site.xml   # expected: 2 (one <name>, one <value>)
+grep -c ConnectionURL $HIVE_HOME/conf/hive-site.xml
+# → 2   ✓ correct
+# → 4+  ✗ a template got merged in — nuke and rewrite the file
+```
+
+Also confirm the value has the **absolute** path:
+
+```bash
+grep -A 1 ConnectionURL $HIVE_HOME/conf/hive-site.xml
+# expected:
+#   <value>jdbc:derby:;databaseName=/home/hdoop/hive_metastore_db;create=true</value>
 ```
 
 ### 3e. Initialize the metastore schema
 
-`schematool` is run from the home directory so that any incidental files (`derby.log`) land there rather than under a project directory:
+**Run this from your HOME directory** — schematool creates any incidental files (`derby.log`) in the current working directory, so running it under a project folder litters that folder:
 
 ```bash
 cd ~
-schematool -dbType derby -initSchema
+schematool -dbType derby -initSchema 2>&1 | tail -5
 ```
 
-Expected final lines:
+Expected last lines:
 
 ```
 Metastore connection URL:  jdbc:derby:;databaseName=/home/hdoop/hive_metastore_db;create=true
+...
 Initialization script completed
 schemaTool completed
 ```
 
-The `Metastore connection URL` line must show the absolute path `/home/hdoop/hive_metastore_db`. If it shows just `databaseName=metastore_db`, `hive-site.xml` is being overridden and step 3d needs to be redone.
+**The `Metastore connection URL` line MUST show the absolute `/home/hdoop/hive_metastore_db` path.** If it says `databaseName=metastore_db` (no path), your `hive-site.xml` is being overridden by a template copy — redo Step 3d.
+
+Verify the metastore is where it should be:
+
+```bash
+ls -la /home/hdoop/hive_metastore_db | head -3
+# expected: shows a Derby database directory (seg0, service.properties, tmp, etc.)
+```
 
 ### 3f. Smoke test
 
@@ -123,17 +173,19 @@ The `Metastore connection URL` line must show the absolute path `/home/hdoop/hiv
 hive -e "SHOW DATABASES;"
 ```
 
-Expected output:
+Expected:
 
 ```
 OK
 default
-Time taken: N.N seconds, Fetched: 1 row(s)
+Time taken: ... seconds
 ```
 
-## 4. Apache HBase 2.4.18 (standalone mode)
+Screenshot: `01-hive-show-databases.png`.
 
-### 4a. Download and extract
+---
+
+## Step 4 — Install Apache HBase 2.4.18 (standalone mode)
 
 ```bash
 cd ~
@@ -142,91 +194,156 @@ tar xzf hbase-2.4.18-bin.tar.gz
 rm hbase-2.4.18-bin.tar.gz
 ```
 
-### 4b. Determine the JDK architecture path
+### 4a. Point HBase's `hbase-env.sh` at Java
+
+**First determine your VM's architecture** (Intel = `amd64`, Apple Silicon / ARM host = `arm64`):
 
 ```bash
-dpkg --print-architecture   # returns amd64 or arm64
+dpkg --print-architecture
+# or, equivalently:
+ls -d /usr/lib/jvm/java-8-openjdk-*
 ```
 
-The `JAVA_HOME` value in `hbase-env.sh` (next step) must reference the matching directory: `java-8-openjdk-amd64` or `java-8-openjdk-arm64`.
-
-### 4c. `hbase-env.sh` additions
-
-The canonical HBase environment additions are checked in at `scripts/hbase-conf/hbase-env.additions.sh`. Append its contents near the top of `$HBASE_HOME/conf/hbase-env.sh`:
-
-- `JAVA_HOME` — absolute path to the OpenJDK 8 root for the VM's architecture.
-- `HBASE_MANAGES_ZK=true` — HBase manages its own ZooKeeper instance in standalone mode.
-- `HBASE_DISABLE_HADOOP_CLASSPATH_LOOKUP=true` — required workaround for the HBase 2.4 + Hadoop 3.x incompatibility that otherwise emits `HADOOP_ORG.APACHE.HADOOP.HBASE.UTIL.GETJAVAPROPERTY_USER: invalid variable name` and prevents HMaster from starting.
-
-Verify:
+Use the value you see (`amd64` or `arm64`) in the next commands.
 
 ```bash
-ls -la $JAVA_HOME/jre/bin/java   # java binary exists (OpenJDK 8 keeps java in jre/bin/)
-ls -la $JAVA_HOME/bin/javac      # javac exists
+vi $HBASE_HOME/conf/hbase-env.sh
 ```
 
-### 4d. `hbase-site.xml`
-
-The canonical HBase configuration is checked in at `scripts/hbase-conf/hbase-site.xml`. Copy it into `$HBASE_HOME/conf/hbase-site.xml`:
+Add near the top (replace `<ARCH>` with `amd64` or `arm64`):
 
 ```bash
-cp scripts/hbase-conf/hbase-site.xml $HBASE_HOME/conf/hbase-site.xml
+export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-<ARCH>
+export HBASE_MANAGES_ZK=true
+
+# HBase 2.4 + Hadoop 3.x compat — skips a broken classpath-lookup step
+# whose sysprop names contain dots that bash rejects.
+export HBASE_DISABLE_HADOOP_CLASSPATH_LOOKUP="true"
 ```
 
-Properties:
+**Verify** the java binary actually lives at that path (JDK 8 keeps `java` inside a `jre` subdirectory):
 
-- `hbase.rootdir` — `hdfs://127.0.0.1:9000/hbase` (HBase stores its data inside HDFS)
-- `hbase.cluster.distributed` — `false` (standalone mode: HMaster + HRegionServer + ZooKeeper in one JVM)
-- `hbase.zookeeper.property.dataDir` — `/home/hdoop/zookeeper`
-- `hbase.unsafe.stream.capability.enforce` — `false` (required for HDFS backend)
+```bash
+ls -la $JAVA_HOME/jre/bin/java     # must exist — this is what HBase invokes
+ls -la $JAVA_HOME/bin/javac        # must exist too
+```
 
-### 4e. Start HBase
+### 4b. Configure standalone HBase using HDFS
 
-Hive and HBase together exceed the 4 GB memory budget, so HBase is started only when the working session requires it.
+```bash
+cat > $HBASE_HOME/conf/hbase-site.xml <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <property>
+    <name>hbase.rootdir</name>
+    <value>hdfs://127.0.0.1:9000/hbase</value>
+  </property>
+  <property>
+    <name>hbase.zookeeper.property.dataDir</name>
+    <value>/home/hdoop/zookeeper</value>
+  </property>
+  <property>
+    <name>hbase.cluster.distributed</name>
+    <value>false</value>
+  </property>
+  <property>
+    <name>hbase.unsafe.stream.capability.enforce</name>
+    <value>false</value>
+  </property>
+</configuration>
+EOF
+```
+
+### 4c. Start HBase
+
+**Important — Hive and HBase together will not fit in 4 GB RAM. Stop Hive-related processes first, and only start HBase when you need it.**
 
 ```bash
 start-hbase.sh
-sleep 20
 jps
 ```
 
-Expected additional process (only one, because standalone mode packs everything into a single JVM):
+Expected extra processes:
 
 ```
 HMaster
 ```
 
-Verify from the shell:
+### 4d. Smoke test the shell
 
 ```bash
-echo "status" | hbase shell 2>/dev/null | tail -3
+echo "list" | hbase shell 2>/dev/null | tail -5
 ```
 
-Expected:
+Expected (no tables yet):
 
 ```
-1 active master, 0 backup masters, 1 servers, 0 dead, N.N average load
+TABLE
+0 row(s) in ... seconds
+
+=> []
 ```
 
-The HBase Master UI is available at `http://localhost:16010`.
+Web UI: `http://localhost:16010` — screenshot as `01-hbase-master-ui.png`.
 
-### 4f. Stop HBase
+### 4e. Stop HBase for now (memory management)
 
 ```bash
 stop-hbase.sh
-jps    # HMaster gone
+jps       # HMaster/HRegionServer/HQuorumPeer gone
 ```
+
+---
+
+## Step 5 — Save evidence and hand off
+
+Screenshots to add to the shared repo (`screenshots/phase-1/<memberID>/`):
+
+| File | What it shows |
+|---|---|
+| `01-pig-version.png` | `pig -version` output |
+| `01-hive-show-databases.png` | `SHOW DATABASES` succeeding |
+| `01-hbase-master-ui.png` | HBase Master UI at :16010 |
+
+Paste back to Claude:
+
+1. Output of `pig -version`
+2. Output of `hive -e "SHOW DATABASES;"`
+3. Output of `echo "list" | hbase shell` (from Step 4d)
+4. Any error message that stopped you
+
+Once verified, we move to **`02-download-and-ingest.md`**.
+
+---
+
+## Reproduce checklist (for Ramya, Sri Lalithya, Vishwa running the same steps on their VM)
+
+- [ ] `.bashrc` block appended and sourced.
+- [ ] Pig extracted to `/home/hdoop/pig-0.17.0`; `pig -version` prints 0.17.0.
+- [ ] Hive extracted to `/home/hdoop/apache-hive-3.1.3-bin`.
+- [ ] Guava swap done (old `guava-19.0.jar` gone, `guava-27.0-jre.jar` present).
+- [ ] `hive-site.xml` created with the minimal block.
+- [ ] `schematool -dbType derby -initSchema` succeeded.
+- [ ] `hive -e "SHOW DATABASES;"` prints `default`.
+- [ ] HBase extracted to `/home/hdoop/hbase-2.4.18`.
+- [ ] `hbase-site.xml` created; `start-hbase.sh` starts HMaster/HRegionServer/HQuorumPeer.
+- [ ] Web UI at `:16010` reachable.
+- [ ] `stop-hbase.sh` cleanly shuts everything back down.
+
+---
 
 ## Troubleshooting
 
-| Symptom | Cause | Resolution |
+| Symptom | Likely cause | Fix |
 |---|---|---|
-| `hive` throws `NoSuchMethodError ... Preconditions.checkArgument` | Guava version mismatch not fixed | Redo step 3b |
-| `SAXParseException` starting `hive` | Malformed character in `hive-default.xml.template` inherited into `hive-site.xml` | Use `scripts/hive-conf/hive-site.xml` verbatim (does not derive from the template) |
-| `schematool` output shows `databaseName=metastore_db` (relative) instead of the absolute path | Duplicate `ConnectionURL` entries — template's relative-path URL overrides the absolute one | Rewrite `hive-site.xml` per step 3d; verify with `grep -c ConnectionURL $HIVE_HOME/conf/hive-site.xml` returning 2 |
-| `CREATE TABLE` fails with `Required table missing : "VERSION"` | Metastore schema not initialized against the correct database path | Nuke stray `metastore_db/` directories (`find ~ -maxdepth 6 -name metastore_db -type d`) and re-run `schematool -dbType derby -initSchema` from `~` |
-| HMaster missing from `jps` | Log shows `HADOOP_ORG.APACHE.HADOOP.HBASE.UTIL...: invalid variable name` | Add `HBASE_DISABLE_HADOOP_CLASSPATH_LOOKUP=true` in `hbase-env.sh` |
-| HMaster missing; log shows `$JAVA_HOME/bin/java: No such file or directory` | `JAVA_HOME` points to `amd64` on an `arm64` VM (or vice versa) | Run `dpkg --print-architecture`; correct the path in both `~/.bashrc` and `$HBASE_HOME/conf/hbase-env.sh` |
-| HBase log shows `PleaseHoldException: Master is initializing` | Startup still in progress | Wait ~30 s after `start-hbase.sh` before issuing shell commands |
-| `KeeperException$ConnectionLossException` | Embedded ZooKeeper crashed | `stop-hbase.sh && start-hbase.sh` |
-| HMaster cannot connect to HDFS | HDFS is down | `start-dfs.sh` first, then `start-hbase.sh` |
+| `hive` command not found | `~/.bashrc` not sourced this shell | `source ~/.bashrc` |
+| `schematool` fails with `Underlying cause: java.sql.SQLException: Failed to create database` | Leftover `metastore_db` | `rm -rf /home/hdoop/hive_metastore_db metastore_db` then re-run |
+| `hive` throws `java.lang.NoSuchMethodError ... Preconditions.checkArgument` | Guava conflict not fixed | Redo Step 3b exactly |
+| `SAXParseException` when starting `hive` | Bad `&#8;` in `hive-default.xml.template` | Use the minimal `hive-site.xml` in Step 3d |
+| `Required table missing : "VERSION"` when running a `CREATE`/`INSERT` after DDL, even though `SHOW DATABASES` worked | `hive-site.xml` has two `ConnectionURL` properties — the template's relative-path one silently overrode yours, so Derby is creating empty `metastore_db/` dirs in whatever cwd `hive` was launched from | Nuke every stale metastore + rewrite hive-site.xml as single-source minimal file:<br/>`rm -rf /home/hdoop/hive_metastore_db /home/hdoop/metastore_db`<br/>`find ~ -maxdepth 6 -name "metastore_db" -type d \| xargs rm -rf`<br/>`find ~ -maxdepth 6 \( -name derby.log -o -name '*.lck' \) \| xargs rm -f`<br/>Redo Step 3d exactly, then Step 3e |
+| Derby creates fresh empty `metastore_db/` in every directory you cd into | Same as above — duplicate `ConnectionURL` in hive-site.xml means the relative-path (template) one wins | Same fix as above |
+| HBase `HMaster` not showing in `jps` | Port 16000/16010 already used | Check with `sudo lsof -i :16010`; kill offender |
+| HBase can't connect to HDFS | Hadoop is stopped | `start-dfs.sh && start-yarn.sh` first |
+| `WARN util.NativeCodeLoader` when running anything | Native lib warning | Ignore — cosmetic |
+| `HADOOP_ORG.APACHE.HADOOP.HBASE.UTIL.GETJAVAPROPERTY_USER: invalid variable name` | HBase 2.4 on Hadoop 3.x classpath probe bug | Add `export HBASE_DISABLE_HADOOP_CLASSPATH_LOOKUP="true"` to `hbase-env.sh` |
+| `$JAVA_HOME/bin/java: No such file or directory` when starting HBase | Wrong arch in `JAVA_HOME` (VM is ARM64 but path says amd64, or vice versa) | Check `dpkg --print-architecture`; fix path in `~/.bashrc` **and** `hbase-env.sh`; then `source ~/.bashrc` and retry |
