@@ -1,0 +1,43 @@
+# === Data files – never commit these ===
+*.parquet
+*.tar.gz
+*.zip
+
+# CSV: allow small samples in reference/sample-data/ but block big ones elsewhere
+*.csv
+!reference/**/*.csv
+!dashboard/data/q*.csv
+
+# === Local staging / logs ===
+staging/
+logs/
+*.log
+!user_output/**/*.log
+tmp/
+tmpdata/
+
+# === Python ===
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env
+
+# === OS junk ===
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# === IDE ===
+.vscode/
+.idea/
+*.iml
+
+# === Hadoop / Hive / HBase runtime output ===
+derby.log
+metastore_db/
+hive-*.log
+hbase-*.log
+target/

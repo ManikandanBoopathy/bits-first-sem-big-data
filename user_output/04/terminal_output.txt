@@ -1,0 +1,39 @@
+hdoop@dhruv:~/bigdata-assignment/my-work/scripts/mapreduce$ ./run.sh 2>&1 | tee ~/mr_run.log
+...
+2026-10-04 10:53:57,??? INFO streaming.StreamJob: Streaming job done.
+2026-10-04 10:53:57,??? INFO mapreduce.Job: Job job_1791104010941_0019 completed successfully
+2026-10-04 10:53:57,??? INFO mapreduce.Job: Counters: 58
+	Map-Reduce Framework
+		Map input records=7799600
+		Map output records=7799600
+		Map output bytes=68943020
+		Reduce input groups=5691
+		Reduce shuffle bytes=84450995
+		Reduce input records=7799600
+		Reduce output records=5691
+	Custom
+		Rows BAD=0
+		Rows OK=7799600
+	File Input Format Counters
+		Bytes Read=950114782
+	File Output Format Counters
+		Bytes Written=57273
+2026-10-04 10:53:57,??? INFO streaming.StreamJob: Output directory: /results/trips_per_zone_hour
+
+→ First 10 lines of output:
+1	00	2
+1	04	8
+1	06	14
+1	08	10
+1	11	7
+1	13	25
+1	15	40
+1	17	35
+1	19	16
+1	20	12
+
+hdoop@dhruv:~/bigdata-assignment/my-work/scripts/mapreduce$ hdfs dfs -cat /results/trips_per_zone_hour/part-* | wc -l
+5691
+
+# YARN job history: job_1791104010941_0019 (TripsPerZonePerHour), elapsed 22 sec, 9 maps / 2 reduces.
+# See also: user_output/04/Screenshot from 2026-10-04 10-54-24.png, 10-57-03.png
